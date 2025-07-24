@@ -39,7 +39,7 @@ fn init() {
     let mut last_possible_water_mob_cap: Option<usize> = None;
     let mut water_mob_cap: Option<usize> = None;
     let mut closest_distance = usize::MAX;
-    for (chunk_index, inst) in data.chunks_exact(INSTR_SIZE).enumerate() {
+    for inst in data.chunks_exact(INSTR_SIZE) {
         let addr = inst.as_ptr() as usize;
         // This will never panic since chunk will always be 4 bytes
         let instr = u32::from_le_bytes(inst.try_into().unwrap());
