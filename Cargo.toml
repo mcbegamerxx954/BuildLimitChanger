@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-dobby-rs = "0.1"
+bhook = "0.1"
 ctor = "0.4"
 log = "0.4"
 jni = "0.21"

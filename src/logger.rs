@@ -6,9 +6,8 @@ use std::{
     io::Write,
     sync::{Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
+    ffi::CString
 };
-
-use std::ffi::CString;
 
 unsafe extern "C" {
     unsafe fn __android_log_print(prio: i32, tag: *const u8, fmt: *const u8, ...) -> i32;
@@ -72,7 +71,7 @@ impl Log for SimpleLogger {
 
             if let Ok(mut file) = file_mutex.lock() {
                 if let Err(e) = file.write_all(msg.as_bytes()) {
-                    eprintln!("Log write error: {e}");
+                    unsafe { __android_log_print(ANDROID_LOG_ERROR, c_tag.as_ptr(), CString::new(format!("Log write error: {e}")).unwrap().as_ptr()) };
                 }
             }
         } else if let Ok(mut buf) = self.buffer.lock() {
