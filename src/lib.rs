@@ -30,44 +30,30 @@ fn init() {
     let start = mcmap.start;
     let data = unsafe { slice::from_raw_parts(start as *const u8, mcmap.size) };
 
-    let mut offset = 0;
     let mut seen_ret = false;
     let mut possible_fn_starts = Vec::new();
-    let mut possible_water_mob_cap_count = 0;
     let mut last_possible_water_mob_cap: Option<usize> = None;
     let mut water_mob_cap: Option<usize> = None;
     let mut closest_distance = usize::MAX;
     let len = data.len();
 
-    unsafe {
-        while offset + INSTR_SIZE <= len {
-            let addr = start + offset;
-
-            let instr = u32::from_le_bytes([
-                *data.get_unchecked(offset),
-                *data.get_unchecked(offset + 1),
-                *data.get_unchecked(offset + 2),
-                *data.get_unchecked(offset + 3),
-            ]);
-
-            if (instr & RET_MASK) == RET_PATTERN {
-                seen_ret = true;
-            } else if (instr & MOVZ_MASK) == MOVZ_PATTERN {
-                possible_water_mob_cap_count += 1;
-                if let Some(prev) = last_possible_water_mob_cap {
-                    let dist = addr.wrapping_sub(prev);
-                    if dist < closest_distance {
-                        closest_distance = dist;
-                        water_mob_cap = Some(addr);
-                    }
+    for inst in data.chunks_exact(INSTR_SIZE) {
+        let addr = inst.as_ptr() as usize;
+        let instr = u32::from_le_bytes(inst.try_into().unwrap());
+        if (instr & RET_MASK) == RET_PATTERN {
+            seen_ret = true;
+        } else if (instr & MOVZ_MASK) == MOVZ_PATTERN {
+            if let Some(prev) = last_possible_water_mob_cap {
+                let dist = addr.wrapping_sub(prev);
+                if dist < closest_distance {
+                    closest_distance = dist;
+                    water_mob_cap = Some(addr);
                 }
-                last_possible_water_mob_cap = Some(addr);
-            } else if seen_ret && (instr & SUB_MASK) == SUB_PATTERN {
-                possible_fn_starts.push(addr);
-                seen_ret = false;
             }
-
-            offset += INSTR_SIZE;
+            last_possible_water_mob_cap = Some(addr);
+        } else if seen_ret && (instr & SUB_MASK) == SUB_PATTERN {
+            possible_fn_starts.push(addr);
+            seen_ret = false;
         }
     }
 

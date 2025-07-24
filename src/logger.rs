@@ -13,15 +13,15 @@ unsafe extern "C" {
     unsafe fn __android_log_print(prio: i32, tag: *const u8, fmt: *const u8, ...) -> i32;
 }
 
-const ANDROID_LOG_VERBOSE: i32 = 2;
-const ANDROID_LOG_DEBUG: i32 = 3;
-const ANDROID_LOG_INFO: i32 = 4;
-const ANDROID_LOG_WARN: i32 = 5;
-const ANDROID_LOG_ERROR: i32 = 6;
+macro_rules! print {
+    ($level:expr, $tag:expr, $msg: expr) => {
+        unsafe { __android_log_print(($level as i32 - 7) * -1, $tag.as_ptr() as *const u8, $msg.as_ptr() as *const u8); }
+    };
+}
 
 pub struct SimpleLogger {
     pub file: OnceLock<Mutex<File>>,
-    pub buffer: Mutex<VecDeque<(String, bool)>>,
+    pub buffer: Mutex<VecDeque<(String, String)>>,
     pub is_levi_launcher: OnceLock<bool>,
 }
 
@@ -47,18 +47,9 @@ impl Log for SimpleLogger {
         let is_levi = *self.is_levi_launcher.get().unwrap_or(&false);
         let tag = if is_levi { "LeviLogger" } else { "BuildLimitChanger" };
         let c_tag = CString::new(tag).unwrap();
-        let c_msg = CString::new(format!("{}", record.args())).unwrap();
-        let prio = match record.level() {
-            Level::Error => ANDROID_LOG_ERROR,
-            Level::Warn => ANDROID_LOG_WARN,
-            Level::Info => ANDROID_LOG_INFO,
-            Level::Debug => ANDROID_LOG_DEBUG,
-            Level::Trace => ANDROID_LOG_VERBOSE,
-        };
-        unsafe {
-            __android_log_print(prio, c_tag.as_ptr(), c_msg.as_ptr());
-        }
-
+        let msg_less = format!("{}", record.args());
+        let c_msg = CString::new(msg_less.clone()).unwrap();
+        print!(record.level(), c_tag, c_msg);
         if let Some(file_mutex) = self.file.get() {
             let path = config::log_path();
             if let Some(ref path) = path {
@@ -71,11 +62,11 @@ impl Log for SimpleLogger {
 
             if let Ok(mut file) = file_mutex.lock() {
                 if let Err(e) = file.write_all(msg.as_bytes()) {
-                    unsafe { __android_log_print(ANDROID_LOG_ERROR, c_tag.as_ptr(), CString::new(format!("Log write error: {e}")).unwrap().as_ptr()) };
+                    print!(Level::Error, c_tag, CString::new(format!("Log write error: {e}")).unwrap())
                 }
             }
         } else if let Ok(mut buf) = self.buffer.lock() {
-            buf.push_back((msg, is_levi));
+            buf.push_back((msg, msg_less));
         }
     }
 
@@ -112,14 +103,12 @@ pub fn init_log_file(is_levi_launcher: bool) {
 
         if let (Some(file_mutex), Ok(mut buffer)) = (LOGGER.file.get(), LOGGER.buffer.lock()) {
             let mut file = file_mutex.lock().unwrap();
-            while let Some((msg, _)) = buffer.pop_front() {
+            while let Some((msg, msg_less)) = buffer.pop_front() {
                 let _ = file.write_all(msg.as_bytes());
                 let tag = if is_levi_launcher { "LeviLogger" } else { "BuildLimitChanger" };
                 let c_tag = CString::new(tag).unwrap();
-                let c_msg = CString::new(msg.clone()).unwrap();
-                unsafe {
-                    __android_log_print(ANDROID_LOG_DEBUG, c_tag.as_ptr(), c_msg.as_ptr());
-                }
+                let c_msg = CString::new(msg_less.clone()).unwrap();
+                print!(Level::Debug, c_tag, c_msg)
             }
         }
 
