@@ -63,10 +63,9 @@ impl Log for SimpleLogger {
         }
 
         if let Some(file_mutex) = self.file.get() {
-            let path = config::log_path(); // Get the path again
+            let path = config::log_path();
             if let Some(ref path) = path {
                 if !path.exists() {
-                    // File deleted, attempt to recreate
                     if let Ok(new_file) = OpenOptions::new().create(true).append(true).open(path) {
                         let _ = file_mutex.lock().map(|mut f| *f = new_file);
                     }
