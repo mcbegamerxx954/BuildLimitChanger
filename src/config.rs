@@ -1,7 +1,14 @@
-use crate::utils::{get_app_external_files_dir, get_games_directory, get_global_context, is_dir_writable};
+use crate::utils::{
+    get_app_external_files_dir, get_games_directory, get_global_context, is_dir_writable,
+};
 use jni::JNIEnv;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::{PathBuf, Path}, sync::OnceLock};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Dimension {
@@ -16,11 +23,15 @@ const CONFIG_FILE: &str = "dimensions.json";
 const LOG_FILE: &str = "log.txt";
 
 fn config_path() -> Option<PathBuf> {
-    CONFIG_DIR.get().map(|dir: &String| Path::new(dir).join(CONFIG_FILE))
+    CONFIG_DIR
+        .get()
+        .map(|dir: &String| Path::new(dir).join(CONFIG_FILE))
 }
 
 pub fn log_path() -> Option<PathBuf> {
-    CONFIG_DIR.get().map(|dir: &String| Path::new(dir).join(LOG_FILE))
+    CONFIG_DIR
+        .get()
+        .map(|dir: &String| Path::new(dir).join(LOG_FILE))
 }
 fn set_config_dir(path: String) {
     if CONFIG_DIR.set(path).is_err() {
@@ -31,8 +42,8 @@ fn set_config_dir(path: String) {
 pub fn save() -> Result<(), ()> {
     let dimensions = HashMap::from([
         ("Overworld".to_string(), Dimension { min: -64, max: 320 }),
-        ("Nether".to_string(),    Dimension { min: 0, max: 128 }),
-        ("TheEnd".to_string(),    Dimension { min: 0, max: 256 }),
+        ("Nether".to_string(), Dimension { min: 0, max: 128 }),
+        ("TheEnd".to_string(), Dimension { min: 0, max: 256 }),
     ]);
 
     let json = serde_json::to_string_pretty(&dimensions)
