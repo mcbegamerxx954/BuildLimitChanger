@@ -1,14 +1,36 @@
 macro_rules! log_dim_change {
     ($cond:expr, $name:expr, $label:expr, $old:expr, $cfg:expr, $new:expr) => {
-        if $cond { log::warn!("{name} Dimension Config {label} {cfg} not divisible by 16, aligning to {new}", name=$name, label=$label, cfg=$cfg, new=$new) }
-        if $old != $new { log::info!("Changing {name} Dimension {label}: {old} → {new}", name=$name, label=$label, old=$old, new=$new) }
+        if $cond {
+            log::warn!(
+                "{name} Dimension Config {label} {cfg} not divisible by 16, aligning to {new}",
+                name = $name,
+                label = $label,
+                cfg = $cfg,
+                new = $new
+            )
+        }
+        if $old != $new {
+            log::info!(
+                "Changing {name} Dimension {label}: {old} → {new}",
+                name = $name,
+                label = $label,
+                old = $old,
+                new = $new
+            )
+        }
     };
 }
 
 macro_rules! aligned {
     ($val:expr, $up:expr) => {{
         let r = $val % 16;
-        if r == 0 { $val } else if $up { $val + (16 - r) } else { $val - r }
+        if r == 0 {
+            $val
+        } else if $up {
+            $val + (16 - r)
+        } else {
+            $val - r
+        }
     }};
 }
 

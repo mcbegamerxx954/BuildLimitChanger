@@ -2,11 +2,11 @@ use crate::config;
 use log::{Level, Log, Metadata, Record};
 use std::{
     collections::VecDeque,
+    ffi::CString,
     fs::{File, OpenOptions},
     io::Write,
     sync::{Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
-    ffi::CString
 };
 
 unsafe extern "C" {
@@ -45,7 +45,11 @@ impl Log for SimpleLogger {
         let msg = format!("[{}] [{}] {}\n", timestamp, record.level(), record.args());
 
         let is_levi = *self.is_levi_launcher.get().unwrap_or(&false);
-        let tag = if is_levi { "LeviLogger" } else { "BuildLimitChanger" };
+        let tag = if is_levi {
+            "LeviLogger"
+        } else {
+            "BuildLimitChanger"
+        };
         let c_tag = CString::new(tag).unwrap();
         let c_msg = CString::new(format!("{}", record.args())).unwrap();
         let prio = match record.level() {
@@ -71,7 +75,15 @@ impl Log for SimpleLogger {
 
             if let Ok(mut file) = file_mutex.lock() {
                 if let Err(e) = file.write_all(msg.as_bytes()) {
-                    unsafe { __android_log_print(ANDROID_LOG_ERROR, c_tag.as_ptr(), CString::new(format!("Log write error: {e}")).unwrap().as_ptr()) };
+                    unsafe {
+                        __android_log_print(
+                            ANDROID_LOG_ERROR,
+                            c_tag.as_ptr(),
+                            CString::new(format!("Log write error: {e}"))
+                                .unwrap()
+                                .as_ptr(),
+                        )
+                    };
                 }
             }
         } else if let Ok(mut buf) = self.buffer.lock() {
@@ -114,7 +126,11 @@ pub fn init_log_file(is_levi_launcher: bool) {
             let mut file = file_mutex.lock().unwrap();
             while let Some((msg, _)) = buffer.pop_front() {
                 let _ = file.write_all(msg.as_bytes());
-                let tag = if is_levi_launcher { "LeviLogger" } else { "BuildLimitChanger" };
+                let tag = if is_levi_launcher {
+                    "LeviLogger"
+                } else {
+                    "BuildLimitChanger"
+                };
                 let c_tag = CString::new(tag).unwrap();
                 let c_msg = CString::new(msg.clone()).unwrap();
                 unsafe {
