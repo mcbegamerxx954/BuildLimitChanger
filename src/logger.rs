@@ -11,7 +11,7 @@ use std::{
 use std::ffi::CString;
 
 unsafe extern "C" {
-    fn __android_log_print(prio: i32, tag: *const u8, fmt: *const u8, ...) -> i32;
+    unsafe fn __android_log_print(prio: i32, tag: *const u8, fmt: *const u8, ...) -> i32;
 }
 
 const ANDROID_LOG_VERBOSE: i32 = 2;
@@ -44,8 +44,6 @@ impl Log for SimpleLogger {
 
         let timestamp = format!("{:02}:{:02}:{:02}.{:03}", h, m, s, millis);
         let msg = format!("[{}] [{}] {}\n", timestamp, record.level(), record.args());
-
-        print!("{}", msg);
 
         let is_levi = *self.is_levi_launcher.get().unwrap_or(&false);
         let tag = if is_levi { "LeviLogger" } else { "BuildLimitChanger" };
