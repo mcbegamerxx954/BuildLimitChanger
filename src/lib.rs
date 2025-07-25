@@ -48,8 +48,12 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
     (water_mob_cap, possible_fn_starts)
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) {
+    #[cfg(target_arch = "x86_64")]
+    const BITNESS: u32 = 64;
+    #[cfg(target_arch = "x86")]
+    const BITNESS: u32 = 32;
     use iced_x86::{Instruction, Decoder, Mnemonic};
 
     let mut seen_ret = false;
@@ -58,7 +62,7 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
     let mut water_mob_cap: Option<usize> = None;
     let mut closest_distance = usize::MAX;
 
-    let mut decoder = Decoder::new(64, data, iced_x86::DecoderOptions::NO_INVALID_CHECK);
+    let mut decoder = Decoder::new(BITNESS, data, iced_x86::DecoderOptions::NO_INVALID_CHECK);
     decoder.set_ip(data.as_ptr() as u64);
     let mut instruction = Instruction::default();
     

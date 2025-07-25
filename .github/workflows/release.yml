@@ -9,9 +9,10 @@ jobs:
   build:
     strategy:
       matrix:
-        target: 
+        target:
+          - x86-linux-android
           - x86_64-linux-android
-          - aarch64-linux-android          
+          - aarch64-linux-android
     runs-on: ubuntu-latest
     permissions:
       contents: write
