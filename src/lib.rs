@@ -9,20 +9,21 @@ use jni::{JavaVM, sys::{jint, JNI_VERSION_1_6}};
 use utils::{find_minecraft_text_section, find_max_less_than, get_global_context, get_package_name};
 use log::LevelFilter;
 
-const RET_MASK: u32 = 0xFFFF_FC1F;
-const RET_PATTERN: u32 = 0xD65F_0000;
-const MOVZ_MASK: u32 = 0xFFFF_FFE0;
-const MOVZ_PATTERN: u32 = 0x52A8_4200;
-const SUB_MASK: u32 = 0xFF00_0000;
-const SUB_PATTERN: u32 = 0xD100_0000;
-const INSTR_SIZE: usize = 4;
-
+#[cfg(target_arch = "aarch64")]
 fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) {
     let mut seen_ret = false;
     let mut possible_fn_starts = Vec::new();
     let mut last_possible_water_mob_cap: Option<usize> = None;
     let mut water_mob_cap: Option<usize> = None;
     let mut closest_distance = usize::MAX;
+
+    const RET_MASK: u32 = 0xFFFF_FC1F;
+    const RET_PATTERN: u32 = 0xD65F_0000;
+    const MOVZ_MASK: u32 = 0xFFFF_FFE0;
+    const MOVZ_PATTERN: u32 = 0x52A8_4200;
+    const SUB_MASK: u32 = 0xFF00_0000;
+    const SUB_PATTERN: u32 = 0xD100_0000;
+    const INSTR_SIZE: usize = 4;
 
     for inst in data.chunks_exact(INSTR_SIZE) {
         let addr = inst.as_ptr() as usize;
@@ -47,23 +48,62 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
     (water_mob_cap, possible_fn_starts)
 }
 
+#[cfg(target_arch = "x86_64")]
+fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) {
+    use iced_x86::{Instruction, Decoder, Mnemonic};
+
+    let mut seen_ret = false;
+    let mut possible_fn_starts = Vec::new();
+    let mut last_possible_water_mob_cap: Option<usize> = None;
+    let mut water_mob_cap: Option<usize> = None;
+    let mut closest_distance = usize::MAX;
+
+    let mut decoder = Decoder::new(64, data, iced_x86::DecoderOptions::NO_INVALID_CHECK);
+    decoder.set_ip(data.as_ptr() as u64);
+    let mut instruction = Instruction::default();
+    
+    const TARGET_IMMEDIATE: u64 = 0x42100000;
+    
+    while decoder.can_decode() {
+        decoder.decode_out(&mut instruction);
+        let mnemonic = instruction.mnemonic();
+        
+        match mnemonic {
+            Mnemonic::Ret => {
+                seen_ret = true;
+            }
+            Mnemonic::Mov => {
+                if instruction.try_immediate(1).unwrap_or(0) == TARGET_IMMEDIATE {
+                    let addr = instruction.ip() as usize;
+                    if let Some(prev) = last_possible_water_mob_cap {
+                        let dist = addr.wrapping_sub(prev);
+                        if dist < closest_distance {
+                            closest_distance = dist;
+                            water_mob_cap = Some(addr);
+                        }
+                    }
+                    last_possible_water_mob_cap = Some(addr);
+                }
+            }
+            Mnemonic::Push if seen_ret => {
+                possible_fn_starts.push(instruction.ip() as usize);
+                seen_ret = false;
+            }
+            _ => {}
+        }
+    }
+
+    (water_mob_cap, possible_fn_starts)
+}
+
 #[ctor::ctor]
 fn init() {
     log::set_logger(&logger::LOGGER).expect("Logger already set");
     log::set_max_level(LevelFilter::Debug);
     log::info!("--------- Logger initialized (no file yet) ---------");
-
     let mcmap = find_minecraft_text_section().expect("Cannot find libminecraftpe.so in memory maps");
     let time_start = Instant::now();
     let data = unsafe { slice::from_raw_parts(mcmap.start as *const u8, mcmap.size) };
-
-    let mut seen_ret = false;
-    let mut possible_fn_starts: Vec<usize> = Vec::new();
-    let mut last_possible_water_mob_cap: Option<usize> = None;
-    let mut water_mob_cap: Option<usize> = None;
-    let mut closest_distance = usize::MAX;
-    let len = data.len();
-
     let (water_mob_cap, possible_fn_starts) = find_water_mob_cap_and_fn_starts(data);
 
     if water_mob_cap.is_none() {
