@@ -68,7 +68,7 @@ jobs:
       - name: Prepare lib for release
         run: mv target/${{ matrix.target }}/githubci/libBuildLimitChanger.so libBuildLimitChanger_${{ matrix.target }}.so
       - name: Create Release
-        uses: mikepenz/action-gh-release@v0.2.0-a03 #softprops/action-gh-release
+        uses: mikepenz/action-gh-release@v0.2.0-a03
         with:
           body: ${{steps.github_release.outputs.changelog}}
           files: libBuildLimitChanger_${{ matrix.target }}.so
