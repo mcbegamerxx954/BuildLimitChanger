@@ -26,7 +26,7 @@ bhook::hook_fn! {
     }
 }
 
-pub unsafe fn setup_hook(function_addr: usize) {
-    hook::hook_address(function_addr as *mut u8);
+pub fn setup_hook(function_addr: usize) {
+    unsafe { hook::hook_address(function_addr as *mut u8) };
     log::debug!("Hooked function at 0x{:X}", function_addr);
 }

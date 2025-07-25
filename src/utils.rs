@@ -91,12 +91,12 @@ pub fn get_package_name(env: &mut JNIEnv, context: &JObject) -> Option<String> {
         .map(|s| s.into())
 }
 
-pub struct SimpleMapRange {
+pub struct TextMapRange {
     pub start: usize,
     pub size: usize,
 }
 
-pub fn find_minecraft_text_section() -> Result<SimpleMapRange, Box<dyn Error>> {
+pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
     let contents = fs::read_to_string("/proc/self/maps")?;
         let mut target_line = None;
     for line in contents.lines() {
@@ -132,12 +132,11 @@ pub fn find_minecraft_text_section() -> Result<SimpleMapRange, Box<dyn Error>> {
         text_addr, text_size
     );
     
-    Ok(SimpleMapRange {
+    Ok(TextMapRange {
         start: text_addr,
         size: text_size,
     })
 }
-
 
 #[inline(always)]
 pub fn find_max_less_than(data: &[usize], target: usize) -> Option<usize> {

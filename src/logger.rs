@@ -90,11 +90,7 @@ pub fn init_log_file(is_levi_launcher: bool) {
             std::fs::create_dir_all(parent).ok();
         }
 
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .expect("Failed to open log file");
+        let file = OpenOptions::new().create(true).append(true).open(&path).expect("Failed to open log file");
 
         LOGGER
             .file
