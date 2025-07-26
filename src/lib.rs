@@ -69,10 +69,8 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
     const TARGET_IMMEDIATE: u64 = 0x42100000;
     
     while decoder.can_decode() {
-        decoder.decode_out(&mut instruction);
-        let mnemonic = instruction.mnemonic();
-        
-        match mnemonic {
+        decoder.decode_out(&mut instruction);        
+        match instruction.mnemonic() {
             Mnemonic::Ret => {
                 seen_ret = true;
             }
@@ -102,11 +100,11 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
 
 #[ctor::ctor]
 fn init() {
+    let time_start = Instant::now();
     log::set_logger(&logger::LOGGER).expect("Logger already set");
     log::set_max_level(LevelFilter::Debug);
     log::info!("--------- Logger initialized (no file yet) ---------");
     let mcmap = find_minecraft_text_section().expect("Cannot find libminecraftpe.so in memory maps");
-    let time_start = Instant::now();
     let data = unsafe { slice::from_raw_parts(mcmap.start as *const u8, mcmap.size) };
     let (water_mob_cap, possible_fn_starts) = find_water_mob_cap_and_fn_starts(data);
 
