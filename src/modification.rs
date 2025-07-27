@@ -13,7 +13,7 @@ macro_rules! aligned {
 }
 
 bhook::hook_fn! {
-    fn hook(d: i64, l: i64, id: u32, range: i32, s: i64, label: *mut u128) -> i64 = {
+    fn hook(d: *mut std::ffi::c_void, l: *mut std::ffi::c_void, id: u32, range: i32, s: *mut std::ffi::c_void, label: *mut u128) -> i64 = {
         use crate::{config, utils::{combine_hex, split_hex, ptr_to_str}};
         let (max, min) = split_hex(range);
         let name = ptr_to_str(label);
