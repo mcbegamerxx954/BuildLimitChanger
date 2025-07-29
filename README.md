@@ -29,6 +29,8 @@ A mod to change the build limits of dimensions in minecraft
      ```
      /storage/emulated/0/Android/data/[minecraft package name]/BuildLimitChanger/
      ```
-     > **Note:** Modified APK files are NOT provided.
+     > **Note:**
+         Modified APK files are NOT provided.
+         The default settings are the default height ranges
 
 ---
