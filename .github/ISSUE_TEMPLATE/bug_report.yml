@@ -22,7 +22,7 @@ body:
     id: launcher
     attributes:
       label: Launcher/Injector used
-      description: Example: LeviLauncher v1.3.2
+      description: "Example: LeviLauncher v1.0.12"
       placeholder: "LeviLauncher vX.X.X"
     validations:
       required: true
