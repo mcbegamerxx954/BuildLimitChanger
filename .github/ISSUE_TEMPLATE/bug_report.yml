@@ -31,8 +31,8 @@ body:
     id: mc-version
     attributes:
       label: Minecraft Version
-      description: Example: 1.21.2, 1.20.73, etc.
-      placeholder: "1.21.2"
+      description: "Example: 1.21.100, 1.20.101, etc."
+      placeholder: "1.21.100"
     validations:
       required: true
 
@@ -40,7 +40,7 @@ body:
     id: architecture
     attributes:
       label: Minecraft Architecture
-      description: Example: arm64-v8a, armeabi-v7a, x86_64
+      description: "Example: arm64-v8a, armeabi-v7a, x86_64"
       placeholder: "arm64-v8a"
     validations:
       required: true
