@@ -52,7 +52,7 @@ When opening a **GitHub Issue**, **you must include** the following:
 
 1. **Launcher/Injector used** (e.g., LeviLauncher, other injector name/version)  
 2. **Minecraft version** (e.g., 1.21.100, 1.20.101, etc.)  
-3. **Minecraft architecture** (e.g., `arm64-v8a`, `armeabi-v7a`, `x86_64`)  
+3. **Minecraft architecture** (e.g., `arm64-v8a`, `x86`, `x86_64`)  
 
 **Also attach:**
 - **BuildLimitChanger config file** you used  
