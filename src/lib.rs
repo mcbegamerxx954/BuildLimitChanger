@@ -50,18 +50,17 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) {
-    #[cfg(target_arch = "x86_64")]
-    const BITNESS: u32 = 64;
-    #[cfg(target_arch = "x86")]
-    const BITNESS: u32 = 32;
-    use iced_x86::{Instruction, Decoder, Mnemonic};
-
     let mut seen_ret = false;
     let mut possible_fn_starts = Vec::new();
     let mut last_possible_water_mob_cap: Option<usize> = None;
     let mut water_mob_cap: Option<usize> = None;
     let mut closest_distance = usize::MAX;
 
+    #[cfg(target_arch = "x86_64")]
+    const BITNESS: u32 = 64;
+    #[cfg(target_arch = "x86")]
+    const BITNESS: u32 = 32;
+    use iced_x86::{Instruction, Decoder, Mnemonic};
     let mut decoder = Decoder::new(BITNESS, data, iced_x86::DecoderOptions::NO_INVALID_CHECK);
     decoder.set_ip(data.as_ptr() as u64);
     let mut instruction = Instruction::default();
@@ -71,9 +70,7 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
     while decoder.can_decode() {
         decoder.decode_out(&mut instruction);        
         match instruction.mnemonic() {
-            Mnemonic::Ret => {
-                seen_ret = true;
-            }
+            Mnemonic::Ret => { seen_ret = true; },
             Mnemonic::Mov => {
                 if instruction.try_immediate(1).unwrap_or(0) == TARGET_IMMEDIATE {
                     let addr = instruction.ip() as usize;
@@ -86,7 +83,7 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
                     }
                     last_possible_water_mob_cap = Some(addr);
                 }
-            }
+            },
             Mnemonic::Push if seen_ret => {
                 possible_fn_starts.push(instruction.ip() as usize);
                 seen_ret = false;
