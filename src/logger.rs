@@ -6,19 +6,34 @@ use std::{
     io::Write,
     sync::{Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
-    ffi::CString
 };
+#[cfg(target_os = "windows")]
+use std::ffi::OsStr;
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStrExt;
 
+#[cfg(target_os = "android")]
 unsafe extern "C" {
-    unsafe fn __android_log_print(prio: i32, tag: *const u8, fmt: *const u8, ...) -> i32;
+    fn __android_log_print(prio: i32, tag: *const u8, fmt: *const u8, ...) -> i32;
 }
 
-macro_rules! print {
+#[cfg(target_os = "android")]
+macro_rules! platform_print {
     ($level:expr, $tag:expr, $msg: expr) => {
-        unsafe { __android_log_print(($level as i32 - 7) * -1, $tag.as_ptr() as *const u8, $msg.as_ptr() as *const u8); }
+        let c_tag = std::ffi::CString::new($tag).unwrap();
+        let c_msg = std::ffi::CString::new($msg).unwrap();
+        unsafe { __android_log_print(($level as i32 - 7) * -1, c_tag.as_ptr() as *const u8, c_msg.as_ptr() as *const u8); }
     };
 }
 
+#[cfg(target_os = "windows")]
+macro_rules! platform_print {
+    ($level:expr, $tag:expr, $msg: expr) => {
+        let formatted_msg = format!("[{}] [{}]: {}\n\0", $tag, $level, $msg);
+        let wide_msg: Vec<u16> = OsStr::new(&formatted_msg).encode_wide().collect();
+        unsafe { windows_sys::Win32::System::Diagnostics::Debug::OutputDebugStringW(wide_msg.as_ptr()); }
+    };
+}
 pub struct SimpleLogger {
     pub file: OnceLock<Mutex<File>>,
     pub buffer: Mutex<VecDeque<(String, String)>>,
@@ -46,10 +61,8 @@ impl Log for SimpleLogger {
 
         let is_levi = *self.is_levi_launcher.get().unwrap_or(&false);
         let tag = if is_levi { "LeviLogger" } else { "BuildLimitChanger" };
-        let c_tag = CString::new(tag).unwrap();
         let msg_less = format!("{}", record.args());
-        let c_msg = CString::new(msg_less.clone()).unwrap();
-        print!(record.level(), c_tag, c_msg);
+        platform_print!(record.level(), tag, msg_less.clone());
         if let Some(file_mutex) = self.file.get() {
             let path = config::log_path();
             if let Some(ref path) = path {
@@ -62,7 +75,7 @@ impl Log for SimpleLogger {
 
             if let Ok(mut file) = file_mutex.lock() {
                 if let Err(e) = file.write_all(msg.as_bytes()) {
-                    print!(Level::Error, c_tag, CString::new(format!("Log write error: {e}")).unwrap())
+                    platform_print!(Level::Error, tag, format!("Log write error: {e}"));
                 }
             }
         } else if let Ok(mut buf) = self.buffer.lock() {
@@ -102,9 +115,7 @@ pub fn init_log_file(is_levi_launcher: bool) {
             while let Some((msg, msg_less)) = buffer.pop_front() {
                 let _ = file.write_all(msg.as_bytes());
                 let tag = if is_levi_launcher { "LeviLogger" } else { "BuildLimitChanger" };
-                let c_tag = CString::new(tag).unwrap();
-                let c_msg = CString::new(msg_less.clone()).unwrap();
-                print!(Level::Debug, c_tag, c_msg)
+                platform_print!(Level::Debug, tag, msg_less);
             }
         }
 

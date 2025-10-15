@@ -1,12 +1,20 @@
-use std::{error::Error, ffi::CStr, fs::{self, File}, io::ErrorKind, os::raw::c_char, path::Path};
-use jni::{objects::{GlobalRef, JObject, JString}, JNIEnv};
-use elf::{endian::AnyEndian, ElfBytes};
+use std::{
+    ffi::CStr,
+    fs::{self, File},
+    io::ErrorKind,
+    os::raw::c_char,
+    path::Path,
+};
 
 #[inline(always)]
-pub fn combine_hex(max: i16, min: i16) -> i32 { ((max as i32) << 16) | (min as u16 as i32) }
+pub fn combine_hex(max: i16, min: i16) -> i32 {
+    ((max as i32) << 16) | (min as u16 as i32)
+}
 
 #[inline(always)]
-pub fn split_hex(combined: i32) -> (i16, i16) { ((combined >> 16) as i16, (combined & 0xFFFF) as i16) }
+pub fn split_hex(combined: i32) -> (i16, i16) {
+    ((combined >> 16) as i16, (combined & 0xFFFF) as i16)
+}
 
 pub fn is_dir_writable(dir: &String) -> bool {
     let path = Path::new(&dir);
@@ -26,118 +34,6 @@ pub fn is_dir_writable(dir: &String) -> bool {
     }
 }
 
-fn get_absolute_path_from_file(env: &mut JNIEnv, file_obj: JObject) -> Option<String> {
-    let abs_path = env
-        .call_method(file_obj, "getAbsolutePath", "()Ljava/lang/String;", &[])
-        .ok()?.l().ok()?;
-    
-    env.get_string(&JString::from(abs_path))
-        .ok()
-        .map(|s| s.into())
-}
-
-pub fn get_games_directory(env: &mut JNIEnv) -> Option<String> {
-    let env_class = env.find_class("android/os/Environment").ok()?;
-    
-    let storage_dir = env
-        .call_static_method(env_class, "getExternalStorageDirectory", "()Ljava/io/File;", &[])
-        .ok()?.l().ok()?;
-    
-    let mut result = get_absolute_path_from_file(env, storage_dir)?;
-    result.push_str("/games");
-    Some(result)
-}
-
-pub fn get_app_external_files_dir(env: &mut JNIEnv, context: &JObject) -> Option<String> {
-    let file_obj = env
-        .call_method(context, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;", &[(&JObject::null()).into()])
-        .ok()?.l().ok()?;
-    
-    get_absolute_path_from_file(env, file_obj)
-}
-
-pub fn get_global_context(env: &mut JNIEnv) -> Option<GlobalRef> {
-    let activity_thread_class = env.find_class("android/app/ActivityThread").ok()?;
-    
-    let at_instance = env
-        .call_static_method(activity_thread_class, "currentActivityThread", "()Landroid/app/ActivityThread;", &[])
-        .ok()?.l().ok()?;
-    
-    let context = env
-        .call_method(at_instance, "getApplication", "()Landroid/app/Application;", &[])
-        .ok()?.l().ok()?;
-    
-    if env.exception_check().unwrap_or(false) {
-        let _ = env.exception_clear();
-        return None;
-    }
-    
-    env.new_global_ref(context).ok()
-}
-
-pub fn get_package_name(env: &mut JNIEnv, context: &JObject) -> Option<String> {
-
-    let jstr = env
-        .call_method(context, "getPackageName", "()Ljava/lang/String;", &[])
-        .ok()?.l().ok()?;
-
-    if env.exception_check().unwrap_or(false) {
-        let _ = env.exception_clear();
-        return None;
-    }
-
-    env.get_string(&JString::from(jstr))
-        .ok()
-        .map(|s| s.into())
-}
-
-pub struct TextMapRange {
-    pub start: usize,
-    pub size: usize,
-}
-
-pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
-    let contents = fs::read_to_string("/proc/self/maps")?;
-        let mut target_line = None;
-    for line in contents.lines() {
-        if line.ends_with("libminecraftpe.so") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 && parts[1].starts_with("r-x") {
-                target_line = Some(line);
-                break;
-            }
-        }
-    }
-    
-    let line = target_line.ok_or("libminecraftpe.so executable mapping not found")?;
-        let parts: Vec<&str> = line.split_whitespace().collect();
-    let addr_range = parts[0];
-    let pathname = parts[5];
-    
-    let dash_pos = addr_range.find('-').unwrap();
-    let base_addr = usize::from_str_radix(&addr_range[..dash_pos], 16)?;
-    
-    let file_data = fs::read(pathname)?;
-    let elf = ElfBytes::<AnyEndian>::minimal_parse(&file_data)?;
-    
-    let section = elf
-        .section_header_by_name(".text")?
-        .ok_or(".text section not found")?;
-    
-    let text_addr = base_addr + section.sh_offset as usize;
-    let text_size = section.sh_size as usize;
-    
-    log::info!(
-        "libminecraftpe.so .text: addr = 0x{:x}, size = 0x{:x}",
-        text_addr, text_size
-    );
-    
-    Ok(TextMapRange {
-        start: text_addr,
-        size: text_size,
-    })
-}
-
 #[inline(always)]
 pub fn find_max_less_than(data: &[usize], target: usize) -> Option<usize> {
     let mut low = 0;
@@ -150,9 +46,235 @@ pub fn find_max_less_than(data: &[usize], target: usize) -> Option<usize> {
         high = if mid_val < target { high } else { mid };
     }
 
-    if low == 0 { None } else { Some(unsafe { *data.get_unchecked(low - 1) }) }
+    if low == 0 {
+        None
+    } else {
+        Some(unsafe { *data.get_unchecked(low - 1) })
+    }
 }
 
 pub unsafe fn ptr_to_str(a6: *mut u128) -> &'static str {
-    CStr::from_ptr((a6 as *const c_char).add(1)).to_str().expect("Failed to get str from ptr")
+    CStr::from_ptr((a6 as *const c_char).add(1))
+        .to_str()
+        .expect("Failed to get str from ptr")
+}
+
+pub struct TextMapRange {
+    pub start: usize,
+    pub size: usize,
+}
+
+#[cfg(target_os = "android")]
+pub use android_specific::*;
+#[cfg(target_os = "android")]
+mod android_specific {
+    use super::TextMapRange;
+    use elf::{endian::AnyEndian, ElfBytes};
+    use jni::{
+        objects::{GlobalRef, JObject, JString},
+        JNIEnv,
+    };
+    use std::{error::Error, fs};
+
+    fn get_absolute_path_from_file(env: &mut JNIEnv, file_obj: JObject) -> Option<String> {
+        let abs_path = env
+            .call_method(file_obj, "getAbsolutePath", "()Ljava/lang/String;", &[])
+            .ok()?
+            .l()
+            .ok()?;
+
+        env.get_string(&JString::from(abs_path))
+            .ok()
+            .map(|s| s.into())
+    }
+
+    pub fn get_games_directory(env: &mut JNIEnv) -> Option<String> {
+        let env_class = env.find_class("android/os/Environment").ok()?;
+
+        let storage_dir = env
+            .call_static_method(
+                env_class,
+                "getExternalStorageDirectory",
+                "()Ljava/io/File;",
+                &[],
+            )
+            .ok()?
+            .l()
+            .ok()?;
+
+        let mut result = get_absolute_path_from_file(env, storage_dir)?;
+        result.push_str("/games");
+        Some(result)
+    }
+
+    pub fn get_app_external_files_dir(env: &mut JNIEnv, context: &JObject) -> Option<String> {
+        let file_obj = env
+            .call_method(
+                context,
+                "getExternalFilesDir",
+                "(Ljava/lang/String;)Ljava/io/File;",
+                &[(&JObject::null()).into()],
+            )
+            .ok()?
+            .l()
+            .ok()?;
+
+        get_absolute_path_from_file(env, file_obj)
+    }
+
+    pub fn get_global_context(env: &mut JNIEnv) -> Option<GlobalRef> {
+        let activity_thread_class = env.find_class("android/app/ActivityThread").ok()?;
+
+        let at_instance = env
+            .call_static_method(
+                activity_thread_class,
+                "currentActivityThread",
+                "()Landroid/app/ActivityThread;",
+                &[],
+            )
+            .ok()?
+            .l()
+            .ok()?;
+
+        let context = env
+            .call_method(
+                at_instance,
+                "getApplication",
+                "()Landroid/app/Application;",
+                &[],
+            )
+            .ok()?
+            .l()
+            .ok()?;
+
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_clear();
+            return None;
+        }
+
+        env.new_global_ref(context).ok()
+    }
+
+    pub fn get_package_name(env: &mut JNIEnv, context: &JObject) -> Option<String> {
+        let jstr = env
+            .call_method(context, "getPackageName", "()Ljava/lang/String;", &[])
+            .ok()?
+            .l()
+            .ok()?;
+
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_clear();
+            return None;
+        }
+
+        env.get_string(&JString::from(jstr)).ok().map(|s| s.into())
+    }
+
+    pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
+        let contents = fs::read_to_string("/proc/self/maps")?;
+        let mut target_line = None;
+        for line in contents.lines() {
+            if line.ends_with("libminecraftpe.so") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 && parts[1].starts_with("r-x") {
+                    target_line = Some(line);
+                    break;
+                }
+            }
+        }
+
+        let line = target_line.ok_or("libminecraftpe.so executable mapping not found")?;
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        let addr_range = parts[0];
+        let pathname = parts[5];
+
+        let dash_pos = addr_range.find('-').unwrap();
+        let base_addr = usize::from_str_radix(&addr_range[..dash_pos], 16)?;
+
+        let file_data = fs::read(pathname)?;
+        let elf = ElfBytes::<AnyEndian>::minimal_parse(&file_data)?;
+
+        let section = elf
+            .section_header_by_name(".text")?
+            .ok_or(".text section not found")?;
+
+        let text_addr = base_addr + section.sh_offset as usize;
+        let text_size = section.sh_size as usize;
+
+        log::info!(
+            "libminecraftpe.so .text: addr = 0x{:x}, size = 0x{:x}",
+            text_addr,
+            text_size
+        );
+
+        Ok(TextMapRange {
+            start: text_addr,
+            size: text_size,
+        })
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub use windows_specific::*;
+#[cfg(target_os = "windows")]
+mod windows_specific {
+    use super::TextMapRange;
+    use std::{error::Error};
+    use windows_sys::Win32::{
+        System::{
+            LibraryLoader::GetModuleHandleW,
+            ProcessStatus::{GetModuleInformation, MODULEINFO},
+        },
+    };
+    use windows::Storage::ApplicationData;
+
+    pub fn get_config_directory() -> Option<String> {
+        let folder = ApplicationData::Current().ok()?.RoamingFolder().ok()?;
+        folder.Path().ok().map(|p| p.to_string_lossy())
+    }
+
+    pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
+        unsafe {
+            let h_module = GetModuleHandleW(std::ptr::null());
+            if h_module == 0 {
+                return Err("Failed to get module handle for main executable".into());
+            }
+
+            let mut mod_info = std::mem::zeroed::<MODULEINFO>();
+            if GetModuleInformation(
+                windows_sys::Win32::System::Threading::GetCurrentProcess(),
+                h_module,
+                &mut mod_info,
+                std::mem::size_of::<MODULEINFO>() as u32,
+            ) == 0
+            {
+                return Err("GetModuleInformation failed".into());
+            }
+
+            let base_addr = mod_info.lpBaseOfDll as usize;
+            let image_slice =
+                std::slice::from_raw_parts(base_addr as *const u8, mod_info.SizeOfImage as usize);
+
+            let pe_view = pelite::PeView::from_bytes(image_slice)?;
+            let text_section = pe_view
+                .section_headers()
+                .iter()
+                .find(|s| s.Name.starts_with(b".text"))
+                .ok_or(".text section not found")?;
+
+            let text_addr = base_addr + text_section.VirtualAddress as usize;
+            let text_size = text_section.VirtualSize as usize;
+
+            log::info!(
+                "Minecraft.Windows.exe .text: addr = 0x{:x}, size = 0x{:x}",
+                text_addr,
+                text_size
+            );
+
+            Ok(TextMapRange {
+                start: text_addr,
+                size: text_size,
+            })
+        }
+    }
 }

@@ -1,5 +1,8 @@
-use crate::utils::{get_app_external_files_dir, get_games_directory, get_global_context, is_dir_writable};
+#[cfg(target_os = "android")]
 use jni::JNIEnv;
+#[cfg(target_os = "android")]
+use crate::utils::{get_app_external_files_dir, get_games_directory, get_global_context};
+use crate::utils::is_dir_writable;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::{PathBuf, Path}, sync::OnceLock};
 
@@ -75,19 +78,25 @@ pub fn load() -> DimensionMap {
     }
 }
 
-pub fn init_config(env: &mut JNIEnv) {
-    let Some(context) = get_global_context(env) else {
-        log::error!("Failed to get global context");
+#[cfg_attr(target_os = "android", no_mangle)]
+pub fn init_config(#[cfg(target_os = "android")] env: &mut JNIEnv) {
+    let Some(mut path) = (|| {
+        #[cfg(target_os = "windows")] {
+            return crate::utils::get_config_directory();
+        }
+        #[cfg(target_os = "android")] {
+            let Some(context) = get_global_context(env) else {
+                log::error!("Failed to get global context");
+                return None;
+            };
+
+            return get_games_directory(env).or_else(|| get_app_external_files_dir(env, context.as_obj()));
+        }
+    })() else {
+        log::error!("Failed to get a valid config directory");
         return;
     };
-
-    let Some(mut path) =
-        get_games_directory(env).or_else(|| get_app_external_files_dir(env, context.as_obj()))
-    else {
-        log::error!("Failed to get a valid external directory");
-        return;
-    };
-
+    
     path.push_str("/BuildLimitChanger/");
 
     if !is_dir_writable(&path) {
