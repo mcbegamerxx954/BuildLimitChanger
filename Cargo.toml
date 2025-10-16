@@ -15,7 +15,7 @@ jni = "0.21"
 elf = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.61", features = [
+windows-sys = { version = "0.52", features = [
     "Win32_Foundation",
     "Win32_System_LibraryLoader",
     "Win32_System_SystemServices",
@@ -27,7 +27,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_Security"
 ]}
 pelite = "0.10"
-windows = { version = "0.61", features = ["Storage"]}
+windows = { version = "0.52", features = ["Storage"]}
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
 iced-x86 = { version = "1.21", default-features = false, features = ["std", "decoder"] }
