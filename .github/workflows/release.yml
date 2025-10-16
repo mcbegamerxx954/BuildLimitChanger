@@ -13,6 +13,8 @@ jobs:
           - i686-linux-android
           - x86_64-linux-android
           - aarch64-linux-android
+          - x86_64-pc-windows-gnu
+          # - i686-pc-windows-gnu  # still broken
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,8 +25,8 @@ jobs:
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
-          target: ${{ matrix.target }} 
-      - name: build
+          target: ${{ matrix.target }}
+      - name: Build
         run: cargo build --profile release
         env:
           CARGO_PROFILE_RELEASE_LTO: "fat"
@@ -40,21 +42,20 @@ jobs:
               "template": "#{{CHANGELOG}}",
               "categories": [
                 {
-                    "title": "## Feature",
-                    "labels": ["feat", "feature"]
+                  "title": "## Feature",
+                  "labels": ["feat", "feature"]
                 },
                 {
-                    "title": "## Fix",
-                    "labels": ["fix", "bug"]
+                  "title": "## Fix",
+                  "labels": ["fix", "bug"]
                 },
-
                 {
-                    "title": "## Chore",
-                    "labels": ["chore"]
-                }
+                  "title": "## Chore",
+                  "labels": ["chore"]
+                },
                 {
-                    "title": "## Other",
-                    "labels": []
+                  "title": "## Other",
+                  "labels": []
                 }
               ],
               "label_extractor": [
@@ -62,14 +63,22 @@ jobs:
                   "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test){1}(\\([\\w\\-\\.]+\\))?(!)?: ([\\w ])+([\\s\\S]*)",
                   "target": "$1"
                 }
-              ],
+              ]
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Prepare lib for release
-        run: mv target/${{ matrix.target }}/release/libBuildLimitChanger.so libBuildLimitChanger_${{ matrix.target }}.so
+        run: |
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            mv target/${{ matrix.target }}/release/BuildLimitChanger.dll BuildLimitChanger_${{ matrix.target }}.dll
+          else
+            mv target/${{ matrix.target }}/release/libBuildLimitChanger.so libBuildLimitChanger_${{ matrix.target }}.so
+          fi
+
       - name: Create Release
         uses: mikepenz/action-gh-release@v1
         with:
-          body: ${{steps.github_release.outputs.changelog}}
-          files: libBuildLimitChanger_${{ matrix.target }}.so
+          body: ${{ steps.github_release.outputs.changelog }}
+          files: |
+            BuildLimitChanger_${{ matrix.target }}.dll
+            libBuildLimitChanger_${{ matrix.target }}.so
