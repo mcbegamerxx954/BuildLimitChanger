@@ -25,11 +25,11 @@ jobs:
       - name: build
         run: cargo build --profile release
       - name: Upload DLL
-          if: contains(matrix.target, 'windows')
-          uses: actions/upload-artifact@v4
-          with:
-            name: BuildLimitChanger-${{ matrix.target }}
-            path: target/${{ matrix.target }}/release/BuildLimitChanger.dll
+        if: contains(matrix.target, 'windows')
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildLimitChanger-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/BuildLimitChanger.dll
       - name: Upload SO
         if: contains(matrix.target, 'android') || contains(matrix.target, 'linux')
         uses: actions/upload-artifact@v4
