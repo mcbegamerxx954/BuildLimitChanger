@@ -11,6 +11,8 @@ jobs:
           - i686-linux-android
           - x86_64-linux-android
           - aarch64-linux-android
+          - x86_64-pc-windows-msvc
+          # - i686-pc-windows-msvc lmao idk wwhy it dont work
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

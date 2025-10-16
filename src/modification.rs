@@ -1,7 +1,7 @@
 macro_rules! log_dim_change {
     ($cond:expr, $name:expr, $label:expr, $old:expr, $cfg:expr, $new:expr) => {
-        if $cond { log::warn!("{name} Dimension Config {label} {cfg} not divisible by 16, aligning to {new}", name=$name, label=$label, cfg=$cfg, new=$new) }
-        if $old != $new { log::info!("Changing {} Dimension {}: {} → {}", $name, $label, $old, $new) }
+        if $cond { log::warn!("{} Dimension Config {} {} not divisible by 16, aligning to {}", $name, $label, $cfg, $new) }
+        if $old != $new { log::info!("Changing {} Dimension {}: {} to {}", $name, $label, $old, $new) }
     };
 }
 
