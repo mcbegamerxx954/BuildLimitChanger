@@ -55,7 +55,7 @@ A mod to change the build limits of dimensions in Minecraft.
 - Changing **Min Build Limit** will **drastically alter world generation**.  
 - Lowering **Max Build Limit** below the game’s default can also significantly change terrain and structure generation.  
 - Only modify these values in new worlds or after backing up existing saves.
-- 
+
 > **Notes**
 > - The default settings match the game’s default height ranges.
 
