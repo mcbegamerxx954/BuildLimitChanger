@@ -1,6 +1,6 @@
 # BuildLimitChanger
 
-A mod to change the build limits of dimensions in Minecraft.
+A mod to change the build limits of dimensions in Minecraft Bedrock Edition.
 
 ---
 
