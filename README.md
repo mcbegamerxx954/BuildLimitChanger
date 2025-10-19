@@ -50,6 +50,20 @@ A mod to change the build limits of dimensions in Minecraft Bedrock Edition.
    ```
 ---
 
+### 🗄️ Server (Windows and Linux)
+
+#### 1. Download the Latest Dll (Windows) or SO (Linux) File
+
+- Go to the [Releases page](https://github.com/Zeuroux/BuildLimitChanger/releases) to download the latest one.
+
+#### 2. Inject the DLL or SO
+
+- You can use **any DLL injector**, fate injector will work for windows, you can google so injector cuz idk one
+
+#### 3. Configuration and Log file location:
+
+- same location as the executable file of the server (you'll find BuildLimitChanger folder)
+
 ## ⚠️ Important Warning
 
 - Changing **Min Build Limit** will **drastically alter world generation**.  
