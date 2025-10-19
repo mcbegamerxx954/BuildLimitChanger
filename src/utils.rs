@@ -48,7 +48,7 @@ pub fn find_max_less_than(data: &[usize], target: usize) -> Option<usize> {
 }
 
 pub unsafe fn ptr_to_str(a6: *mut u128) -> &'static str {
-    CStr::from_ptr((a6 as *const c_char).add(if cfg!(target_os = "android") { 1 } else { 0 }))
+    CStr::from_ptr((a6 as *const c_char).add(if cfg!(any(target_os = "android", target_os = "linux")) { 1 } else { 0 }))
             .to_str()
             .expect("Failed to get str from ptr")
 }
