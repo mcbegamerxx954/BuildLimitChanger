@@ -14,6 +14,7 @@ jobs:
           - x86_64-linux-android
           - aarch64-linux-android
           - x86_64-pc-windows-gnu
+          - x86_64-unknown-linux-gnu
           # - i686-pc-windows-gnu  # still broken
     runs-on: ubuntu-latest
     permissions:
