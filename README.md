@@ -37,7 +37,7 @@ A mod to change the build limits of dimensions in Minecraft Bedrock Edition.
 
 - **If you are using [LeviLauncher](https://github.com/LiteLDev/LeviLaunchroid):**
   1. Download the `.so` file.
-  2. Tap the file and choose to open with LeviLauncher for import.
+  2. Tap the file on your file manager and choose to open with LeviLauncher for import.
   3. Launch
 
 #### 3. Configuration and Log file location:
