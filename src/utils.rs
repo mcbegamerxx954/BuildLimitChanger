@@ -271,22 +271,32 @@ mod linux_specific {
     pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
         let maps = fs::read_to_string("/proc/self/maps")?;
         let exe_path = std::env::current_exe()?;
-        let exe_name = exe_path.file_name().ok_or("No exe name")?.to_string_lossy();
+        let exe_path_str = exe_path.to_string_lossy();
 
         let mut target_line = None;
         for line in maps.lines() {
-            if line.contains(exe_name.as_ref()) && line.contains("r-x") {
-                target_line = Some(line);
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 6 {
+                continue;
+            }
+
+            let perms = parts[1];
+            let pathname = parts[5..].join(" ");
+            if pathname == exe_path_str && perms.starts_with("r-x") {
+                target_line = Some(line.to_string());
                 break;
             }
         }
 
-        let line = target_line.ok_or("Current executable mapping not found")?;
+        let line = target_line.ok_or("Current executable 'r-x' mapping not found")?;
         let parts: Vec<&str> = line.split_whitespace().collect();
+
         let addr_range = parts[0];
+        let map_file_offset_str = parts[2];
 
         let dash_pos = addr_range.find('-').ok_or("Invalid address range")?;
-        let base_addr = usize::from_str_radix(&addr_range[..dash_pos], 16)?;
+        let map_base_addr = usize::from_str_radix(&addr_range[..dash_pos], 16)?;
+        let map_file_offset = usize::from_str_radix(map_file_offset_str, 16)?;
 
         let file_data = fs::read(&exe_path)?;
         let elf = ElfBytes::<AnyEndian>::minimal_parse(&file_data)?;
@@ -295,8 +305,10 @@ mod linux_specific {
             .section_header_by_name(".text")?
             .ok_or(".text section not found")?;
 
-        let text_addr = base_addr + section.sh_offset as usize;
+        let text_section_file_offset = section.sh_offset as usize;
         let text_size = section.sh_size as usize;
+
+        let text_addr = map_base_addr + (text_section_file_offset - map_file_offset);
 
         log::info!("Current exe .text: addr = 0x{:x}, size = 0x{:x}", text_addr, text_size);
 

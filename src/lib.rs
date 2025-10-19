@@ -88,7 +88,7 @@ fn init() {
     println!("Starting BuildLimitChanger");
     let time_start = Instant::now();
     log::set_logger(&logger::LOGGER).expect("Logger already set");
-    log::set_max_level(log::LevelFilter::Info);
+    log::set_max_level(log::LevelFilter::Debug);
 
     #[cfg(any(target_os = "windows", target_os = "linux"))] {
         crate::config::init_config();
