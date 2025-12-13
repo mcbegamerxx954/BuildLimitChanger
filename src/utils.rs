@@ -1,11 +1,9 @@
-use std::{ffi::CStr, fs::{self, File}, io::ErrorKind, os::raw::c_char, path::Path};
+use std::{fs::{self, File}, io::ErrorKind, path::Path, error::Error};
 
-#[inline(always)]
 pub fn combine_hex(max: i16, min: i16) -> i32 { 
     ((max as i32) << 16) | (min as u16 as i32)
 }
 
-#[inline(always)]
 pub fn split_hex(combined: i32) -> (i16, i16) {
     ((combined >> 16) as i16, (combined & 0xFFFF) as i16)
 }
@@ -39,11 +37,6 @@ pub fn find_max_less_than(data: &[usize], target: usize) -> Option<usize> {
     if low == 0 { None } else { Some(unsafe { *data.get_unchecked(low - 1) }) }
 }
 
-pub unsafe fn ptr_to_str(a6: *mut u128) -> &'static str {
-    let offset = if cfg!(any(target_os = "android", target_os = "linux")) { 1 } else { 0 };
-    CStr::from_ptr((a6 as *const c_char).add(offset)).to_str().expect("Failed to get str from ptr")
-}
-
 pub struct TextMapRange { pub start: usize, pub size: usize }
 
 #[cfg_attr(target_os = "android", no_mangle)]
@@ -66,7 +59,7 @@ pub fn get_config_directory(#[cfg(target_os = "android")] env: &mut jni::JNIEnv)
 }
 
 #[cfg(any(target_os = "android", target_os = "linux"))]
-fn find_text_section_for_target(target: &str) -> Result<TextMapRange, Box<dyn std::error::Error>> {
+fn find_text_section_for_target(target: &str) -> Result<TextMapRange, Box<dyn Error>> {
     use libc::c_void;
     use std::ffi::CString;
     use std::path::Path;
@@ -112,7 +105,7 @@ fn find_text_section_for_target(target: &str) -> Result<TextMapRange, Box<dyn st
     unsafe fn is_matching_name(info: &libc::dl_phdr_info, target_name: &str) -> bool {
         if info.dlpi_name.is_null() { return false; }
         
-        if let Ok(name) = CStr::from_ptr(info.dlpi_name).to_str() {
+        if let Ok(name) = std::ffi::CStr::from_ptr(info.dlpi_name).to_str() {
             name == target_name || 
             Path::new(name).file_name().and_then(|n| n.to_str()) == Some(target_name)
         } else { false }
@@ -149,13 +142,33 @@ fn find_text_section_for_target(target: &str) -> Result<TextMapRange, Box<dyn st
     }
 }
 
-#[cfg(any(target_os = "android", target_os = "linux"))]
-pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn std::error::Error>> {
+pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
     #[cfg(target_os = "linux")] {
         let exe = std::env::current_exe()?.to_string_lossy().into_owned();
         find_text_section_for_target(&exe).map_err(|_| format!("Can't find executable text section for {exe}").into())
     }
     #[cfg(target_os = "android")] { find_text_section_for_target("libminecraftpe.so").map_err(|_| "Can't find text section for libminecraftpe.so".into()) }
+    #[cfg(target_os = "windows")] unsafe {
+        use windows_sys::Win32::System::{LibraryLoader::GetModuleHandleW, ProcessStatus::{GetModuleInformation, MODULEINFO}, Threading::GetCurrentProcess};
+        let h_module = GetModuleHandleW(std::ptr::null());
+        if h_module == 0 { return Err("Failed to get module handle for main executable".into()); }
+
+        let mut mod_info = std::mem::zeroed::<MODULEINFO>();
+        if GetModuleInformation(GetCurrentProcess(), h_module, &mut mod_info, std::mem::size_of::<MODULEINFO>() as u32) == 0 {
+            return Err("GetModuleInformation failed".into());
+        }
+
+        let base_addr = mod_info.lpBaseOfDll as usize;
+        let image_slice = std::slice::from_raw_parts(base_addr as *const u8, mod_info.SizeOfImage as usize);
+        let text_section = pelite::PeView::from_bytes(image_slice)?.section_headers().iter().find(|s| s.Name.starts_with(b".text")).ok_or(".text section not found")?;
+
+        let text_addr = base_addr + text_section.VirtualAddress as usize;
+        let text_size = text_section.VirtualSize as usize;
+
+        log::debug!("Minecraft.Windows.exe .text: addr = 0x{:x}, size = 0x{:x}", text_addr, text_size);
+
+        Ok(TextMapRange { start: text_addr, size: text_size })
+    }
 }
 
 #[cfg(target_os = "android")]
@@ -220,37 +233,5 @@ mod android_specific {
             return None;
         }
         env.get_string(&JString::from(jstr)).ok().map(|s| s.into())
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub use windows_specific::*;
-#[cfg(target_os = "windows")]
-mod windows_specific {
-    use super::TextMapRange;
-    use std::error::Error;
-    use windows_sys::Win32::System::{LibraryLoader::GetModuleHandleW, ProcessStatus::{GetModuleInformation, MODULEINFO}, Threading::GetCurrentProcess};
-
-    pub fn find_minecraft_text_section() -> Result<TextMapRange, Box<dyn Error>> {
-        unsafe {
-            let h_module = GetModuleHandleW(std::ptr::null());
-            if h_module == 0 { return Err("Failed to get module handle for main executable".into()); }
-
-            let mut mod_info = std::mem::zeroed::<MODULEINFO>();
-            if GetModuleInformation(GetCurrentProcess(), h_module, &mut mod_info, std::mem::size_of::<MODULEINFO>() as u32) == 0 {
-                return Err("GetModuleInformation failed".into());
-            }
-
-            let base_addr = mod_info.lpBaseOfDll as usize;
-            let image_slice = std::slice::from_raw_parts(base_addr as *const u8, mod_info.SizeOfImage as usize);
-            let text_section = pelite::PeView::from_bytes(image_slice)?.section_headers().iter().find(|s| s.Name.starts_with(b".text")).ok_or(".text section not found")?;
-
-            let text_addr = base_addr + text_section.VirtualAddress as usize;
-            let text_size = text_section.VirtualSize as usize;
-
-            log::debug!("Minecraft.Windows.exe .text: addr = 0x{:x}, size = 0x{:x}", text_addr, text_size);
-
-            Ok(TextMapRange { start: text_addr, size: text_size })
-        }
     }
 }

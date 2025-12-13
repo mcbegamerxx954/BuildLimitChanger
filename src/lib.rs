@@ -14,12 +14,21 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
     #[cfg(target_arch = "aarch64")] {
         const MASKS: [u32; 3] = [0xFFFF_FC1F, 0xFFFF_FFE0, 0xFF00_0000];
         const PATTERNS: [u32; 3] = [0xD65F_0000, 0x52A8_4200, 0xD100_0000];
+        const LMAO: u32 = 0xF2E8_4200;
         for inst in data.chunks_exact(4) {
             let addr = inst.as_ptr() as usize;
             let instr = u32::from_le_bytes(inst.try_into().unwrap());
             if (instr & MASKS[0]) == PATTERNS[0] {
                 seen_ret = true;
-            } else if (instr & MASKS[1]) == PATTERNS[1] {
+            } else if seen_ret && (instr & MASKS[2]) == PATTERNS[2] {
+                possible_fn_starts.push(addr);
+                seen_ret = false;
+            } else {
+                let masked = instr & MASKS[1];
+                if !(masked == PATTERNS[1] || masked == LMAO) {
+                    continue;
+                }
+                log::debug!("instr {:X}", instr);
                 if let Some(prev) = last_possible_water_mob_cap {
                     let dist = addr.wrapping_sub(prev);
                     if dist < closest_distance {
@@ -28,9 +37,6 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
                     }
                 }
                 last_possible_water_mob_cap = Some(addr);
-            } else if seen_ret && (instr & MASKS[2]) == PATTERNS[2] {
-                possible_fn_starts.push(addr);
-                seen_ret = false;
             }
         }
     }
@@ -43,6 +49,8 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
         let mut instruction = Instruction::default();
 
         const TARGET_IMMEDIATE: u64 = 0x42100000;
+        const TARGET_IMMEDIATE2: u64 = 0x40000000;
+        let mut lastTarget: u64 = 0;
         while decoder.can_decode() {
             decoder.decode_out(&mut instruction);
 
@@ -55,7 +63,10 @@ fn find_water_mob_cap_and_fn_starts(data: &[u8]) -> (Option<usize>, Vec<usize>) 
                         seen_ret = false;
                         continue;
                     }
-                    if instruction.try_immediate(1).unwrap_or(0) == TARGET_IMMEDIATE {
+                    let current = instruction.try_immediate(1).unwrap_or(0);
+                    let is_target = matches!(current, TARGET_IMMEDIATE | TARGET_IMMEDIATE2);
+                    if is_target && lastTarget != current {
+                        lastTarget = current;
                         let addr = instruction.ip() as usize;
                         if let Some(prev) = last_possible_water_mob_cap {
                             let dist = addr.wrapping_sub(prev);
@@ -91,9 +102,8 @@ fn init() {
         return log::error!("Cannot get the function where water mob cap is located");
     };
     log::debug!("Function Offset: 0x{:X}", function_addr);
-    log::debug!("{:02X?}", &data[function_addr - mcmap.start..(function_addr - mcmap.start + 10).min(data.len())]);
+    log::debug!("{:02X?}", &data[function_addr - mcmap.start..(function_addr - mcmap.start + 50).min(data.len())]);
     hook::setup_hook(function_addr);
-    log::debug!("{:02X?}", &data[function_addr - mcmap.start..(function_addr - mcmap.start + 10).min(data.len())]);
     log::info!("Took: {:?}", time_start.elapsed());
 }
 

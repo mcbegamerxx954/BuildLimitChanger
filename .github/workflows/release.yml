@@ -40,31 +40,12 @@ jobs:
           commitMode: true
           configurationJson: |
             {
-              "template": "#{{CHANGELOG}}",
-              "categories": [
-                {
-                  "title": "## Feature",
-                  "labels": ["feat", "feature"]
-                },
-                {
-                  "title": "## Fix",
-                  "labels": ["fix", "bug"]
-                },
-                {
-                  "title": "## Chore",
-                  "labels": ["chore"]
-                },
-                {
-                  "title": "## Other",
-                  "labels": []
-                }
-              ],
-              "label_extractor": [
-                {
-                  "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test){1}(\\([\\w\\-\\.]+\\))?(!)?: ([\\w ])+([\\s\\S]*)",
-                  "target": "$1"
-                }
-              ]
+              "template": "{{CHANGELOG}}",
+              "commit_template": "- {{message}} ({{hash}})",
+              "categories": [],
+              "sort": {
+                "order": "ASC"
+              }
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

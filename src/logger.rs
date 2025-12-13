@@ -41,8 +41,10 @@ impl Log for SimpleLogger {
         } else if let Ok(mut buf) = self.buffer.lock() {
             buf.push_back((msg, msg_less));
         }
+        if record.level() == Level::Error {
+            panic!("Error: {}", record.args().to_string());
+        }
     }
-
     fn flush(&self) {}
 }
 
@@ -51,14 +53,12 @@ pub fn init_log_file(is_levi_launcher: bool) {
     if let Some(path) = config::log_path() {
         path.parent().map(|p| std::fs::create_dir_all(p).ok());
         LOGGER.file.set(Mutex::new(OpenOptions::new().create(true).append(true).open(&path).expect("Failed to open log file"))).expect("Logger file already set");
-
         if let (Some(fm), Ok(mut buf)) = (LOGGER.file.get(), LOGGER.buffer.lock()) {
             while let Some((msg, msg_less)) = buf.pop_front() {
                 let _ = fm.lock().unwrap().write_all(msg.as_bytes());
                 platform_print!(Level::Debug, if is_levi_launcher { "LeviLogger" } else { "BuildLimitChanger" }, msg_less);
             }
         }
-
         log::info!("\n    Logs: {}\n    Config: {}", path.display(), config_path().unwrap().display());
     }
 }
