@@ -1,4 +1,5 @@
 # BuildLimitChanger
+# No Longer work since 1.21.120
 
 A mod to change the build limits of dimensions in Minecraft Bedrock Edition.
 
