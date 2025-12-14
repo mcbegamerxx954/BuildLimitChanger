@@ -17,9 +17,27 @@ macro_rules! change_range {
         let range_address = $range_addr;
         let range: i32 = std::ptr::read_volatile(range_address);
         const MAX_NAME_LEN: usize = 15;
-        let mut name_bytes: [u8; MAX_NAME_LEN] = [0; MAX_NAME_LEN];
-        std::ptr::copy_nonoverlapping((range_address as *mut u8).offset(4), name_bytes.as_mut_ptr(), MAX_NAME_LEN);
-        let name = String::from_utf8_lossy(&name_bytes[.. name_bytes.iter().position(|&c| c == 0).unwrap_or(MAX_NAME_LEN)]).trim().to_string();
+       let mut name_bytes: [u8; MAX_NAME_LEN] = [0; MAX_NAME_LEN];
+        std::ptr::copy_nonoverlapping(
+            (range_address as *const u8).add(4),
+            name_bytes.as_mut_ptr(),
+            MAX_NAME_LEN,
+        );
+
+        let end = name_bytes
+            .iter()
+            .position(|&c| c == 0)
+            .unwrap_or(MAX_NAME_LEN);
+
+        let cleaned: Vec<u8> = name_bytes[..end]
+            .iter()
+            .copied()
+            .filter(|b| !b.is_ascii_control())
+            .collect();
+
+        let name = String::from_utf8_lossy(&cleaned).to_string();
+
+        log::info!("{:?}, {:?}", name.as_bytes(), name_bytes);
         use crate::{config, utils::{combine_hex, split_hex}};
         let (max, min) = split_hex(range);
         let (cfg_min, cfg_max) = config::load().get(&name).map(|d| (d.min, d.max)).unwrap_or((min, max));
